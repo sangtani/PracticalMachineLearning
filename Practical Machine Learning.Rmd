@@ -1,0 +1,73 @@
+---
+title: "Practical Machine Learning"
+author: "Sachin Sangtani"
+date: "November 22, 2015"
+output: html_document
+---
+
+## Executive Summary
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, we use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+Two models were tested for accuracy. Random Forests proved to be the more accurate model for this data. 
+
+## Preparing the Environment and Data
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE)
+```
+
+```{r results='hide'}
+library(lattice)
+library(ggplot2)
+library(survival)
+library(splines)
+library(parallel)
+library(caret)
+library(gbm)
+library(randomForest)
+library(plyr)
+
+training <- data.frame(read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!","")))
+testing <- data.frame(read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!","")))
+```
+
+Dealing with sparse data that gives errors in the models. Determine which columns are all NA, causing the models to fail. Exclude those from the training dataset.
+
+```{r}
+relevantColumns <- colnames(training[colSums(is.na(training))==0])
+dataTraining <- training[,relevantColumns]
+```
+## Model Selection
+Two models were run to select the more accurate one. First, GBM (Boosting) and second, Random Forests. The same cross validation approach of k-fold of 4 was used in both models to train and validate. 
+
+The output of each is shown below: 
+
+### Boosting
+```{r}
+modFitBoosting <-  train (classe ~ ., method="gbm", data=dataTraining, verbose = FALSE, trControl=trainControl(method = "cv", number = 4, allowParallel = TRUE, verboseIter = FALSE))
+
+print (modFitBoosting)
+
+
+```
+
+### Random Forests
+```{r}
+modFitRF <- train(classe ~ ., method="rf", data=dataTraining, trControl=trainControl(method = "cv", number = 4, allowParallel = TRUE, verboseIter = FALSE))
+
+print (modFitRF)
+
+
+```
+
+### Selection
+Comparing the results against each other on the data set, we find that both produce the same results (all predicted as classe = A). Therefore, we pick the model with a marginally better result (0.99964 for Random Forests)
+
+```{r}
+predBoosting <- predict(modFitBoosting, testing)
+
+predRF <- predict(modFitRF, testing)
+summary(predBoosting)
+summary(predRF)
+
+```
